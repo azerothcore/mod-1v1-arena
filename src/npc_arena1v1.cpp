@@ -12,80 +12,79 @@
 #include "DisableMgr.h"
 #include "BattlegroundMgr.h"
 #include "Battleground.h"
-#include "ArenaTeam.h"
-#include "Language.h"
 #include "Config.h"
+#include "Language.h"
 #include "Log.h"
 #include "Player.h"
 #include "ScriptedGossip.h"
 #include "Chat.h"
+#include "Tokenize.h"
 
-//Const for 1v1 arena
-constexpr uint32 ARENA_TEAM_1V1 = 1;
-constexpr uint32 ARENA_TYPE_1V1 = 1;
-constexpr BattlegroundQueueTypeId bgQueueTypeId = (BattlegroundQueueTypeId)((int)BATTLEGROUND_QUEUE_5v5 + 1);
-
-//Config
-std::vector<uint32> forbiddenTalents;
-
-class configloader_1v1arena : public WorldScript
+namespace
 {
-public:
-    configloader_1v1arena() : WorldScript("configloader_1v1arena") {}
+    std::vector<uint32> _forbiddenTalents;
 
-
-    virtual void OnAfterConfigLoad(bool /*Reload*/) override
+    bool HasForbiddenTalents(uint32 talentID)
     {
-        std::string blockedTalentsStr = sConfigMgr->GetStringDefault("Arena1v1.ForbiddenTalentsIDs", "");
-        Tokenizer toks(blockedTalentsStr, ',');
-        for (auto&& token : toks)
-        {
-            forbiddenTalents.push_back(std::stoi(token));
-        }
-    }
+        for (auto const& itr : _forbiddenTalents)
+            if (talentID == itr)
+                return true;
 
+        return false;
+    }
 };
 
-class playerscript_1v1arena : public PlayerScript
+constexpr BattlegroundQueueTypeId arenaQueue = (BattlegroundQueueTypeId)(BATTLEGROUND_QUEUE_5v5 + 1);
+
+class Arena1v1_World : public WorldScript
 {
 public:
-    playerscript_1v1arena() : PlayerScript("playerscript_1v1arena") { }
+    Arena1v1_World() : WorldScript("Arena1v1_World") {}
 
-    void OnLogin(Player* pPlayer) override
+    void OnAfterConfigLoad(bool /*Reload*/) override
     {
-        if (sConfigMgr->GetBoolDefault("Arena1v1.Announcer", true))
-            ChatHandler(pPlayer->GetSession()).SendSysMessage("This server is running the |cff4CFF00Arena 1v1 |rmodule.");
+        // Clear before add for reload support
+        _forbiddenTalents.clear();
+
+        auto const frbiddenTalentsIDs = sConfigMgr->GetOption<std::string>("Arena1v1.ForbiddenTalentsIDs", "");
+
+        for (auto const& talent : acore::Tokenize(frbiddenTalentsIDs, ',', true))
+            _forbiddenTalents.emplace_back(talent);
     }
+};
+
+class Arena1v1_Player : public PlayerScript
+{
+public:
+    Arena1v1_Player() : PlayerScript("Arena1v1_Player") { }
 
     void GetCustomGetArenaTeamId(const Player* player, uint8 slot, uint32& id) const override
     {
         if (slot == sConfigMgr->GetIntDefault("Arena1v1.ArenaSlotID", 3))
         {
-            if (ArenaTeam* at = sArenaTeamMgr->GetArenaTeamByCaptain(player->GetGUID(), ARENA_TEAM_1V1))
+            if (ArenaTeam* at = sArenaTeamMgr->GetArenaTeamByCaptain(player->GetGUID(), ARENA_TEAM_5v5))
             {
                 id = at->GetId();
             }
         }
     }
 
-
     void GetCustomArenaPersonalRating(const Player* player, uint8 slot, uint32& rating) const override
     {
         if (slot == sConfigMgr->GetIntDefault("Arena1v1.ArenaSlotID", 3))
         {
-            if (ArenaTeam* at = sArenaTeamMgr->GetArenaTeamByCaptain(player->GetGUID(), ARENA_TEAM_1V1))
+            if (ArenaTeam* at = sArenaTeamMgr->GetArenaTeamByCaptain(player->GetGUID(), ARENA_TEAM_5v5))
             {
                 rating = at->GetRating();
             }
         }
     }
 
-
     void OnGetMaxPersonalArenaRatingRequirement(const Player* player, uint32 minslot, uint32& maxArenaRating) const override
     {
         if (sConfigMgr->GetBoolDefault("Arena1v1.VendorRating", false) && minslot < (uint32)sConfigMgr->GetIntDefault("Arena1v1.ArenaSlotID", 3))
         {
-            if (ArenaTeam* at = sArenaTeamMgr->GetArenaTeamByCaptain(player->GetGUID(), ARENA_TEAM_1V1))
+            if (ArenaTeam* at = sArenaTeamMgr->GetArenaTeamByCaptain(player->GetGUID(), ARENA_TEAM_5v5))
             {
                 maxArenaRating = std::max(at->GetRating(), maxArenaRating);
             }
@@ -93,23 +92,23 @@ public:
     }
 };
 
-class npc_1v1arena : public CreatureScript
+class Arena1v1_Creature : public CreatureScript
 {
 public:
-    npc_1v1arena() : CreatureScript("npc_1v1arena") { }
+    Arena1v1_Creature() : CreatureScript("Arena1v1_Creature") { }
 
     bool OnGossipHello(Player* player, Creature* creature) override
     {
         if (!player || !creature)
             return true;
 
-        if (sConfigMgr->GetBoolDefault("Arena1v1.Enable", true) == false)
+        if (!sConfigMgr->GetBoolDefault("Arena1v1.Enable", true))
         {
-            ChatHandler(player->GetSession()).SendSysMessage("1v1 disabled!");
+            ChatHandler(player->GetSession()).SendSysMessage("> Module arena 1v1 disabled!");
             return true;
         }
 
-        if (player->InBattlegroundQueueForBattlegroundQueueType(bgQueueTypeId))
+        if (player->InBattlegroundQueueForBattlegroundQueueType(arenaQueue))
         {
             AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Queue leave 1v1 Arena", GOSSIP_SENDER_MAIN, 3, "Are you sure?", 0, false);
         }
@@ -118,13 +117,13 @@ public:
             AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Queue enter 1v1 Arena (UnRated)", GOSSIP_SENDER_MAIN, 20);
         }
 
-        if (!player->GetArenaTeamId(ArenaTeam::GetSlotByType(ARENA_TEAM_1V1)))
+        if (!player->GetArenaTeamId(ArenaTeam::GetSlotByType(ARENA_TEAM_5v5)))
         {
             AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Create new 1v1 Arena Team", GOSSIP_SENDER_MAIN, 1, "Are you sure?", sConfigMgr->GetIntDefault("Arena1v1.Costs", 400000), false);
         }
         else
         {
-            if (!player->InBattlegroundQueueForBattlegroundQueueType(bgQueueTypeId))
+            if (!player->InBattlegroundQueueForBattlegroundQueueType(arenaQueue))
             {
                 AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Queue enter 1v1 Arena (Rated)", GOSSIP_SENDER_MAIN, 2);
                 AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Arenateam Clear", GOSSIP_SENDER_MAIN, 5, "Are you sure?", 0, false);
@@ -186,9 +185,9 @@ public:
 
         case 3: // Leave Queue
         {
-            uint8 arenaType = ARENA_TYPE_1V1;
+            uint8 arenaType = ARENA_TYPE_5v5;
 
-            if (!player->InBattlegroundQueueForBattlegroundQueueType(bgQueueTypeId))
+            if (!player->InBattlegroundQueueForBattlegroundQueueType(arenaQueue))
                 return true;
 
             WorldPacket data;
@@ -201,7 +200,7 @@ public:
 
         case 4: // get statistics
         {
-            ArenaTeam* at = sArenaTeamMgr->GetArenaTeamById(player->GetArenaTeamId(ArenaTeam::GetSlotByType(ARENA_TEAM_1V1)));
+            ArenaTeam* at = sArenaTeamMgr->GetArenaTeamById(player->GetArenaTeamId(ArenaTeam::GetSlotByType(ARENA_TEAM_5v5)));
             if (at)
             {
                 std::stringstream s;
@@ -220,7 +219,7 @@ public:
         case 5: // Disband arenateam
         {
             WorldPacket Data;
-            Data << player->GetArenaTeamId(ArenaTeam::GetSlotByType(ARENA_TEAM_1V1));
+            Data << player->GetArenaTeamId(ArenaTeam::GetSlotByType(ARENA_TEAM_5v5));
             player->GetSession()->HandleArenaTeamLeaveOpcode(Data);
             handler.SendSysMessage("Arenateam deleted!");
             CloseGossipMenuFor(player);
@@ -242,8 +241,8 @@ private:
         if (sConfigMgr->GetIntDefault("Arena1v1.MinLevel", 80) > player->getLevel())
             return false;
 
-        uint8 arenaslot = ArenaTeam::GetSlotByType(ARENA_TEAM_1V1);
-        uint8 arenatype = ARENA_TYPE_1V1;
+        uint8 arenaslot = ArenaTeam::GetSlotByType(ARENA_TEAM_5v5);
+        uint8 arenatype = ARENA_TYPE_5v5;
         uint32 arenaRating = 0;
         uint32 matchmakerRating = 0;
 
@@ -255,7 +254,7 @@ private:
         Battleground* bg = sBattlegroundMgr->GetBattlegroundTemplate(BATTLEGROUND_AA);
         if (!bg)
         {
-            sLog->outString("Battleground: template bg (all arenas) not found");
+            LOG_ERROR("modules", "Battleground: template bg (all arenas) not found");
             return false;
         }
 
@@ -270,7 +269,7 @@ private:
             return false;
 
         // check if already in queue
-        if (player->GetBattlegroundQueueIndex(bgQueueTypeId) < PLAYER_MAX_BATTLEGROUND_QUEUES)
+        if (player->GetBattlegroundQueueIndex(arenaQueue) < PLAYER_MAX_BATTLEGROUND_QUEUES)
             return false; // //player is already in this queue
 
         // check if has free queue slots
@@ -298,21 +297,21 @@ private:
                 arenaRating = 1;
         }
 
-        BattlegroundQueue& bgQueue = sBattlegroundMgr->GetBattlegroundQueue(bgQueueTypeId);
-        bgQueue.SetBgTypeIdAndArenaType(BATTLEGROUND_AA, ARENA_TYPE_1V1);
+        BattlegroundQueue& bgQueue = sBattlegroundMgr->GetBattlegroundQueue(arenaQueue);
+        bgQueue.SetBgTypeIdAndArenaType(BATTLEGROUND_AA, ARENA_TYPE_5v5);
         bg->SetRated(isRated);
         bg->SetMaxPlayersPerTeam(1);
 
         GroupQueueInfo* ginfo = bgQueue.AddGroup(player, nullptr, bracketEntry, isRated, false, arenaRating, matchmakerRating, ateamId);
         uint32 avgTime = bgQueue.GetAverageQueueWaitTime(ginfo);
-        uint32 queueSlot = player->AddBattlegroundQueueId(bgQueueTypeId);
+        uint32 queueSlot = player->AddBattlegroundQueueId(arenaQueue);
 
         // send status packet (in queue)
         WorldPacket data;
         sBattlegroundMgr->BuildBattlegroundStatusPacket(&data, bg, queueSlot, STATUS_WAIT_QUEUE, avgTime, 0, arenatype, TEAM_NEUTRAL, isRated);
         player->GetSession()->SendPacket(&data);
 
-        sBattlegroundMgr->ScheduleArenaQueueUpdate(matchmakerRating, bgQueueTypeId, bracketEntry->GetBracketId());
+        sBattlegroundMgr->ScheduleArenaQueueUpdate(matchmakerRating, arenaQueue, bracketEntry->GetBracketId());
 
         return true;
     }
@@ -322,7 +321,8 @@ private:
         if (!player || !me)
             return false;
 
-        uint8 slot = ArenaTeam::GetSlotByType(ARENA_TEAM_1V1);
+        uint8 slot = ArenaTeam::GetSlotByType(ARENA_TEAM_5v5);
+
         //Just to make sure as some other module might edit this value
         if (slot == 0)
             return false;
@@ -337,22 +337,18 @@ private:
         // Teamname = playername
         // if teamname exist, we have to choose another name (playername + number)
         int i = 1;
-        std::stringstream teamName;
-        teamName << player->GetName();
+        std::string teamName = player->GetName();
         do
         {
-            if (sArenaTeamMgr->GetArenaTeamByName(teamName.str()) != NULL) // teamname exist, so choose another name
-            {
-                teamName.str(std::string());
-                teamName << player->GetName() << (i++);
-            }
+            if (sArenaTeamMgr->GetArenaTeamByName(teamName)) // teamname exist, so choose another name
+                teamName = acore::StringFormat("%s - %u", player->GetName().c_str(), i++);
             else
                 break;
         } while (i < 100); // should never happen
 
         // Create arena team
         ArenaTeam* arenaTeam = new ArenaTeam();
-        if (!arenaTeam->Create(player->GetGUID(), ARENA_TEAM_1V1, teamName.str(), 4283124816, 45, 4294242303, 5, 4294705149))
+        if (!arenaTeam->Create(player->GetGUID(), ARENA_TEAM_5v5, teamName, 4283124816, 45, 4294242303, 5, 4294705149))
         {
             delete arenaTeam;
             return false;
@@ -371,27 +367,26 @@ private:
         if (!player)
             return false;
 
-        if (sConfigMgr->GetBoolDefault("Arena1v1.BlockForbiddenTalents", true) == false)
+        if (!sConfigMgr->GetOption<bool>("Arena1v1.BlockForbiddenTalents", true))
             return true;
 
         uint32 count = 0;
 
-        for (uint32 talentId = 0; talentId < sTalentStore.GetNumRows(); ++talentId)
+        for (auto const& talentInfo : sTalentStore)
         {
-            TalentEntry const* talentInfo = sTalentStore.LookupEntry(talentId);
-
-            if (!talentInfo)
-                continue;
-
-            if (std::find(forbiddenTalents.begin(), forbiddenTalents.end(), talentInfo->TalentID) != forbiddenTalents.end())
-            {
-                ChatHandler(player->GetSession()).SendSysMessage("You can not join because you have forbidden talents.");
-                return false;
-            }
-
             for (int8 rank = MAX_TALENT_RANK - 1; rank >= 0; --rank)
-                if (talentInfo->RankID[rank] == 0)
+            {
+                auto rankTalent = talentInfo->RankID[rank];
+
+                if (!rankTalent)
                     continue;
+
+                if (!player->HasTalent(rankTalent, player->GetActiveSpec()))
+                    continue;
+
+                if (HasForbiddenTalents(talentInfo->TalentTab))
+                    count += rank + 1;
+            }
         }
 
         if (count >= 36)
@@ -404,62 +399,56 @@ private:
     }
 };
 
-class team_1v1arena : public ArenaTeamScript
+class Arena1v1_ArenaTeam : public ArenaTeamScript
 {
 public:
-    team_1v1arena() : ArenaTeamScript("team_1v1arena") {}
-
+    Arena1v1_ArenaTeam() : ArenaTeamScript("Arena1v1_ArenaTeam") {}
 
     void OnGetSlotByType(const uint32 type, uint8& slot) override
     {
-        if (type == ARENA_TEAM_1V1)
+        if (type == ARENA_TEAM_5v5)
         {
-            slot = sConfigMgr->GetIntDefault("Arena1v1.ArenaSlotID", 3);
+            slot = sConfigMgr->GetOption<uint8>("Arena1v1.ArenaSlotID", 3);
         }
     }
-
 
     void OnGetArenaPoints(ArenaTeam* at, float& points) override
     {
-        if (at->GetType() == ARENA_TEAM_1V1)
+        if (at->GetType() == ARENA_TEAM_5v5)
         {
-            points *= sConfigMgr->GetFloatDefault("Arena1v1.ArenaPointsMulti", 0.64f);
+            points *= sConfigMgr->GetOption<float>("Arena1v1.ArenaPointsMulti", 0.64f);
         }
     }
-
 
     void OnTypeIDToQueueID(const BattlegroundTypeId, const uint8 arenaType, uint32& _bgQueueTypeId) override
     {
-        if (arenaType == ARENA_TYPE_1V1)
+        if (arenaType == ARENA_TEAM_5v5)
         {
-            _bgQueueTypeId = bgQueueTypeId;
+            _bgQueueTypeId = arenaQueue;
         }
     }
-
 
     void OnQueueIdToArenaType(const BattlegroundQueueTypeId _bgQueueTypeId, uint8& arenaType) override
     {
-        if (_bgQueueTypeId == bgQueueTypeId)
+        if (_bgQueueTypeId == arenaQueue)
         {
-            arenaType = ARENA_TYPE_1V1;
+            arenaType = ARENA_TEAM_5v5;
         }
     }
 
-
     void OnSetArenaMaxPlayersPerTeam(const uint8 type, uint32& maxPlayersPerTeam) override
     {
-        if (type == ARENA_TYPE_1V1)
+        if (type == ARENA_TEAM_5v5)
         {
             maxPlayersPerTeam = 1;
         }
     }
-
 };
 
 void AddSC_npc_1v1arena()
 {
-    new configloader_1v1arena();
-    new playerscript_1v1arena();
-    new npc_1v1arena();
-    new team_1v1arena();
+    new Arena1v1_World();
+    new Arena1v1_Player();
+    new Arena1v1_Creature();
+    new Arena1v1_ArenaTeam();
 }
