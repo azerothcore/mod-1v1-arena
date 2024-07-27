@@ -186,7 +186,7 @@ public:
         {
             case 1: // Create new Arenateam
             {
-                if (sConfigMgr->GetOption<uint32>("Arena1v1.MinLevel", 80) <= player->getLevel())
+                if (sConfigMgr->GetOption<uint32>("Arena1v1.MinLevel", 80) <= player->GetLevel())
                 {
                     if (player->GetMoney() >= uint32(sConfigMgr->GetOption<uint32>("Arena1v1.Costs", 400000)) && CreateArenateam(player, creature))
                         player->ModifyMoney(sConfigMgr->GetOption<uint32>("Arena1v1.Costs", 400000) * -1);
@@ -274,7 +274,7 @@ private:
         if (!player || !me)
             return false;
 
-        if (sConfigMgr->GetOption<uint32>("Arena1v1.MinLevel", 80) > player->getLevel())
+        if (sConfigMgr->GetOption<uint32>("Arena1v1.MinLevel", 80) > player->GetLevel())
             return false;
 
         uint8 arenatype = ARENA_TYPE_1V1;
@@ -299,7 +299,7 @@ private:
             return false;
         }
 
-        PvPDifficultyEntry const* bracketEntry = GetBattlegroundBracketByLevel(bg->GetMapId(), player->getLevel());
+        PvPDifficultyEntry const* bracketEntry = GetBattlegroundBracketByLevel(bg->GetMapId(), player->GetLevel());
         if (!bracketEntry)
             return false;
 
