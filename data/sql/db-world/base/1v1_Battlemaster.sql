@@ -14,7 +14,8 @@ DELETE FROM `command` WHERE `name` IN ('q1v1', 'q1v1 rated', 'q1v1 unrated');
 INSERT INTO `command` (`name`, `security`, `help`) VALUES
 ('q1v1', 0, 'Syntax .q1v1 rated/unrate\nJoin arena 1v1 rated or unrated'),
 ('q1v1 rated', 0, 'Syntax .q1v1 rated\nJoin arena 1v1 rated'),
-('q1v1 unrated', 0, 'Syntax .q1v1 unrated\nJoin arena 1v1 unrated');
+('q1v1 unrated', 0, 'Syntax .q1v1 unrated\nJoin arena 1v1 unrated'),
+('q1v1 stats', 0, 'Syntax .q1v1 stats\nShow arena 1v1 stats');
 
 SET @NPC_TEXT_1v1="This NPC enables you to join 1v1 unrated arenas, create a 1v1 arena team, and join 1v1 rated arenas.$B$BIf you prefer not to interact with the NPC, you can use the following commands to join or create the arena:$B$B.q1v1 rated$B$B.q1v1 unrated$B$BNote that if you don’t already have a 1v1 arena team, using .q1v1 rated will automatically create one for you.";
 DELETE FROM `npc_text` WHERE `id`=999992;
