@@ -62,7 +62,7 @@ void deleteTeamArenaForPlayer(Player* player)
     if (queryPlayerTeam)
     {
         CharacterDatabase.Execute("DELETE FROM `arena_team` WHERE `captainGuid`={} AND `type`=1", player->GetGUID().GetCounter());
-        CharacterDatabase.Execute("DELETE FROM `arena_team_member` WHERE `guid`={} AND `type`=1", player->GetGUID().GetCounter());
+        CharacterDatabase.Execute("DELETE FROM `arena_team_member` WHERE `guid`={}", player->GetGUID().GetCounter());
     }
 }
 
