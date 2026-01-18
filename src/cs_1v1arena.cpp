@@ -87,10 +87,10 @@ public:
                     return false;
                 }
 
-                player->ModifyMoney(-int32(cost));
-
                 if (!Command1v1.CreateArenateam(player, nullptr))
                     return false;
+
+                player->ModifyMoney(-int32(cost));
 
                 handler->SendSysMessage("Arena 1v1 team created successfully. Use the command again to join the rated queue.");
                 return true;
