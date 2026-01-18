@@ -98,7 +98,8 @@ public:
     playerscript_1v1arena() : PlayerScript("playerscript_1v1arena", {
         PLAYERHOOK_ON_LOGIN,
         PLAYERHOOK_ON_GET_MAX_PERSONAL_ARENA_RATING_REQUIREMENT,
-        PLAYERHOOK_ON_GET_ARENA_TEAM_ID
+        PLAYERHOOK_ON_GET_ARENA_TEAM_ID,
+        PLAYERHOOK_NOT_SET_ARENA_TEAM_INFO_FIELD
     }) { }
 
     void OnPlayerLogin(Player* pPlayer) override
@@ -121,6 +122,14 @@ public:
 
         if (slot == ARENA_SLOT_1V1)
             result = player->GetArenaTeamIdFromDB(player->GetGUID(), ARENA_TYPE_1V1);
+    }
+
+    bool OnPlayerNotSetArenaTeamInfoField(Player* /*player*/, uint8 slot, ArenaTeamInfoType /*type*/, uint32 /*value*/) override
+    {
+        if (slot == ARENA_SLOT_1V1)
+            return false;
+
+        return true;
     }
 };
 
