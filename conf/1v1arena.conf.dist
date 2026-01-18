@@ -109,4 +109,31 @@ Arena1v1.ArenaSlotID = 3
 Arena1v1.EnableCommand = 1
 
 #
+#    Arena1v1.CastDeserterOnAfk
+#        Description: Applies the Deserter penalty to any player who joins the 1v1 Arena queue and does not accept the invitation within the time limit.
+#        Default:     0 - (false)
+#                     1 - (true)
+#
+
+Arena1v1.CastDeserterOnAfk = 1
+
+#
+#    Arena1v1.CastDeserterOnLeave
+#        Description: Applies the Deserter penalty to any player who leaves the 1v1 Arena before the end of the combat.
+#        Default:     0 - (false)
+#                     1 - (true)
+#
+
+Arena1v1.CastDeserterOnLeave = 1
+
+#
+#    Arena1v1.StopGameIncomplete
+#        Description: The 1v1 Arena automatically ends if one of the players leaves the arena before the fight begins.
+#        Default:     0 - (false)
+#                     1 - (true)
+#
+
+Arena1v1.StopGameIncomplete = 1
+
+#
 ###################################################################################################

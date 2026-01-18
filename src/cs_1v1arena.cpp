@@ -67,6 +67,19 @@ public:
             return false;
         }
 
+        if (player->HasAura(26013) &&
+            (sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnAfk", true) ||
+                sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnLeave", true)))
+        {
+            WorldPacket data;
+            sBattlegroundMgr->BuildGroupJoinedBattlegroundPacket(
+                &data, ERR_GROUP_JOIN_BATTLEGROUND_DESERTERS);
+            player->GetSession()->SendPacket(&data);
+
+            handler->PSendSysMessage("Can't join while you have the Deserter debuff!");
+            return false;
+        }
+
         uint32 minLevel = sConfigMgr->GetOption<uint32>("Arena1v1.MinLevel", 80);
         if (player->GetLevel() < minLevel)
         {

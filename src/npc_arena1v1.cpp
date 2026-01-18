@@ -200,8 +200,20 @@ bool npc_1v1arena::OnGossipSelect(Player* player, Creature* creature, uint32 /*s
 
         case NPC_ARENA_1V1_ACTION_JOIN_QUEUE_ARENA_RATED:
         {
-            if (Arena1v1CheckTalents(player) && !JoinQueueArena(player, creature, true))
-                handler.SendSysMessage("Something went wrong when joining the queue.");
+            if (player->HasAura(26013) &&
+                (sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnAfk", true) ||
+                    sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnLeave", true)))
+            {
+                WorldPacket data;
+                sBattlegroundMgr->BuildGroupJoinedBattlegroundPacket(
+                    &data, ERR_GROUP_JOIN_BATTLEGROUND_DESERTERS);
+                player->GetSession()->SendPacket(&data);
+            }
+            else
+            {
+                if (Arena1v1CheckTalents(player) && !JoinQueueArena(player, creature, true))
+                    handler.SendSysMessage("Something went wrong when joining the queue.");
+            }
 
             CloseGossipMenuFor(player);
             return true;
@@ -210,8 +222,20 @@ bool npc_1v1arena::OnGossipSelect(Player* player, Creature* creature, uint32 /*s
 
         case NPC_ARENA_1V1_ACTION_JOIN_QUEUE_ARENA_UNRATED:
         {
-            if (Arena1v1CheckTalents(player) && !JoinQueueArena(player, creature, false))
-                handler.SendSysMessage("Something went wrong when joining the queue.");
+            if (player->HasAura(26013) &&
+                (sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnAfk", true) ||
+                    sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnLeave", true)))
+            {
+                WorldPacket data;
+                sBattlegroundMgr->BuildGroupJoinedBattlegroundPacket(
+                    &data, ERR_GROUP_JOIN_BATTLEGROUND_DESERTERS);
+                player->GetSession()->SendPacket(&data);
+            }
+            else
+            {
+                if (Arena1v1CheckTalents(player) && !JoinQueueArena(player, creature, false))
+                    handler.SendSysMessage("Something went wrong when joining the queue.");
+            }
 
             CloseGossipMenuFor(player);
             return true;
@@ -495,10 +519,87 @@ public:
     }
 };
 
+class playerscript_1v1arena_deserter : public PlayerScript
+{
+public:
+    playerscript_1v1arena_deserter()
+        : PlayerScript("playerscript_1v1arena_deserter",
+            { PLAYERHOOK_ON_BATTLEGROUND_DESERTION }) {
+    }
+
+    void OnPlayerBattlegroundDesertion(Player* player, BattlegroundDesertionType type) override
+    {
+        if (!player)
+            return;
+
+        Battleground* bg = player->GetBattleground();
+
+        if (type != ARENA_DESERTION_TYPE_NO_ENTER_BUTTON)
+        {
+            if (!bg || bg->GetArenaType() != ARENA_TYPE_1V1)
+                return;
+        }
+
+        switch (type)
+        {
+        case ARENA_DESERTION_TYPE_LEAVE_BG:
+        {
+            if (bg->GetStatus() == STATUS_WAIT_JOIN)
+            {
+                if (sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnAfk", true) ||
+                    sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnLeave", true))
+                {
+                    player->CastSpell(player, 26013, true);
+                }
+
+                if (sConfigMgr->GetOption<bool>("Arena1v1.StopGameIncomplete", true))
+                {
+                    bg->SetRated(false);
+                    bg->EndBattleground(TEAM_NEUTRAL);
+                }
+            }
+            else if (bg->GetStatus() == STATUS_IN_PROGRESS)
+            {
+                if (sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnLeave", true))
+                {
+                    player->CastSpell(player, 26013, true);
+                }
+            }
+            break;
+        }
+
+        case ARENA_DESERTION_TYPE_NO_ENTER_BUTTON:
+        {
+            if (sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnAfk", true))
+            {
+                if (!player->HasAura(26013))
+                    player->CastSpell(player, 26013, true);
+            }
+            break;
+        }
+
+        case ARENA_DESERTION_TYPE_INVITE_LOGOUT:
+        {
+            if (player->IsInvitedForBattlegroundQueueType(bgQueueTypeId))
+            {
+                if (sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnAfk", true) ||
+                    sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnLeave", true))
+                    player->CastSpell(player, 26013, true);
+            }
+            break;
+        }
+
+        default:
+            break;
+        }
+    }
+};
+
 void AddSC_npc_1v1arena()
 {
     new configloader_1v1arena();
     new playerscript_1v1arena();
+    new playerscript_1v1arena_deserter();
     new npc_1v1arena();
     new team_1v1arena();
 }
