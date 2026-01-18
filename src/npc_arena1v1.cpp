@@ -62,7 +62,7 @@ void deleteTeamArenaForPlayer(Player* player)
     if (queryPlayerTeam)
     {
         CharacterDatabase.Execute("DELETE FROM `arena_team` WHERE `captainGuid`={} AND `type`=1", player->GetGUID().GetCounter());
-        CharacterDatabase.Execute("DELETE FROM `arena_team_member` WHERE `guid`={} AND `type`=1", player->GetGUID().GetCounter());
+        sArenaTeamMgr->RemoveArenaTeam(player->GetArenaTeamId(ARENA_SLOT_1V1));
     }
 }
 
@@ -98,7 +98,8 @@ public:
     playerscript_1v1arena() : PlayerScript("playerscript_1v1arena", {
         PLAYERHOOK_ON_LOGIN,
         PLAYERHOOK_ON_GET_MAX_PERSONAL_ARENA_RATING_REQUIREMENT,
-        PLAYERHOOK_ON_GET_ARENA_TEAM_ID
+        PLAYERHOOK_ON_GET_ARENA_TEAM_ID,
+        PLAYERHOOK_NOT_SET_ARENA_TEAM_INFO_FIELD
     }) { }
 
     void OnPlayerLogin(Player* pPlayer) override
@@ -121,6 +122,14 @@ public:
 
         if (slot == ARENA_SLOT_1V1)
             result = player->GetArenaTeamIdFromDB(player->GetGUID(), ARENA_TYPE_1V1);
+    }
+
+    bool OnPlayerNotSetArenaTeamInfoField(Player* /*player*/, uint8 slot, ArenaTeamInfoType /*type*/, uint32 /*value*/) override
+    {
+        if (slot == ARENA_SLOT_1V1)
+            return false;
+
+        return true;
     }
 };
 
@@ -404,7 +413,6 @@ bool npc_1v1arena::CreateArenateam(Player* player, Creature* /* me */)
     player->SetArenaPoints(0);
 
     // This disaster is the result of changing the MAX_ARENA_SLOT from 3 to 4.
-    sArenaTeamMgr->RemoveArenaTeam(player->GetArenaTeamId(ARENA_SLOT_1V1));
     deleteTeamArenaForPlayer(player);
 
     // Create arena team
