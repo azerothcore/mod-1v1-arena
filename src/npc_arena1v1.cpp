@@ -62,7 +62,7 @@ void deleteTeamArenaForPlayer(Player* player)
     if (queryPlayerTeam)
     {
         CharacterDatabase.Execute("DELETE FROM `arena_team` WHERE `captainGuid`={} AND `type`=1", player->GetGUID().GetCounter());
-        CharacterDatabase.Execute("DELETE FROM `arena_team_member` WHERE `guid`={}", player->GetGUID().GetCounter());
+        sArenaTeamMgr->RemoveArenaTeam(player->GetArenaTeamId(ARENA_SLOT_1V1));
     }
 }
 
@@ -380,7 +380,6 @@ bool npc_1v1arena::CreateArenateam(Player* player, Creature* /* me */)
     player->SetArenaPoints(0);
 
     // This disaster is the result of changing the MAX_ARENA_SLOT from 3 to 4.
-    sArenaTeamMgr->RemoveArenaTeam(player->GetArenaTeamId(ARENA_SLOT_1V1));
     deleteTeamArenaForPlayer(player);
 
     // Create arena team
