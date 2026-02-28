@@ -544,10 +544,13 @@ public:
         {
         case ARENA_DESERTION_TYPE_LEAVE_BG:
         {
+            bool applyDeserter = bg->isRated() || sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnUnrated", false);
+
             if (bg->GetStatus() == STATUS_WAIT_JOIN)
             {
-                if (sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnAfk", true) ||
-                    sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnLeave", true))
+                if (applyDeserter &&
+                    (sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnAfk", true) ||
+                        sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnLeave", true)))
                 {
                     player->CastSpell(player, 26013, true);
                 }
@@ -560,7 +563,7 @@ public:
             }
             else if (bg->GetStatus() == STATUS_IN_PROGRESS)
             {
-                if (sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnLeave", true))
+                if (applyDeserter && sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnLeave", true))
                 {
                     player->CastSpell(player, 26013, true);
                 }
@@ -572,7 +575,12 @@ public:
         {
             if (sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnAfk", true))
             {
-                if (!player->HasAura(26013))
+                BattlegroundQueue& bgQueue = sBattlegroundMgr->GetBattlegroundQueue(bgQueueTypeId);
+                GroupQueueInfo ginfo;
+                bool isQueueRated = bgQueue.GetPlayerGroupInfoData(player->GetGUID(), &ginfo) && ginfo.IsRated;
+                bool applyDeserter = isQueueRated || sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnUnrated", false);
+
+                if (applyDeserter && !player->HasAura(26013))
                     player->CastSpell(player, 26013, true);
             }
             break;
@@ -584,7 +592,15 @@ public:
             {
                 if (sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnAfk", true) ||
                     sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnLeave", true))
-                    player->CastSpell(player, 26013, true);
+                {
+                    BattlegroundQueue& bgQueue = sBattlegroundMgr->GetBattlegroundQueue(bgQueueTypeId);
+                    GroupQueueInfo ginfo;
+                    bool isQueueRated = bgQueue.GetPlayerGroupInfoData(player->GetGUID(), &ginfo) && ginfo.IsRated;
+                    bool applyDeserter = isQueueRated || sConfigMgr->GetOption<bool>("Arena1v1.CastDeserterOnUnrated", false);
+
+                    if (applyDeserter)
+                        player->CastSpell(player, 26013, true);
+                }
             }
             break;
         }
