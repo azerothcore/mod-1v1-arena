@@ -127,6 +127,17 @@ Arena1v1.CastDeserterOnAfk = 1
 Arena1v1.CastDeserterOnLeave = 1
 
 #
+#    Arena1v1.CastDeserterOnUnrated
+#        Description: When disabled, the Deserter penalty is not applied for unrated 1v1 Arena matches.
+#                     Arena1v1.CastDeserterOnAfk and Arena1v1.CastDeserterOnLeave must still be enabled
+#                     for the penalty to apply to rated matches.
+#        Default:     0 - (false)
+#                     1 - (true)
+#
+
+Arena1v1.CastDeserterOnUnrated = 0
+
+#
 #    Arena1v1.StopGameIncomplete
 #        Description: The 1v1 Arena automatically ends if one of the players leaves the arena before the fight begins.
 #        Default:     0 - (false)
