@@ -9,7 +9,7 @@ DELETE FROM `battlemaster_entry` WHERE `entry`=999991;
 INSERT INTO `battlemaster_entry` (`entry`, `bg_template`) VALUES (999991, 6);
 
 -- Command
-DELETE FROM `command` WHERE `name` IN ('q1v1', 'q1v1 rated', 'q1v1 unrated');
+DELETE FROM `command` WHERE `name` IN ('q1v1', 'q1v1 rated', 'q1v1 unrated', 'q1v1 stats');
 INSERT INTO `command` (`name`, `security`, `help`) VALUES
 ('q1v1', 0, 'Syntax .q1v1 rated/unrate\nJoin arena 1v1 rated or unrated'),
 ('q1v1 rated', 0, 'Syntax .q1v1 rated\nJoin arena 1v1 rated'),
